@@ -1,113 +1,131 @@
-🎼 Bộ công cụ Media (VideoCreatorApp)
-Một ứng dụng desktop đa năng dành cho Windows, giúp bạn dễ dàng chỉnh sửa file âm thanh, tạo video từ ảnh và nhạc, cũng như xử lý hàng loạt file media một cách nhanh chóng. Ứng dụng được xây dựng bằng Python với giao diện đồ họa thân thiện.
+# 🎼 Bộ Công Cụ Media (VideoCreatorApp)
 
-(Mẹo: Bạn nên chụp một bức ảnh màn hình của ứng dụng và thay thế dòng dưới đây để README trông hấp dẫn hơn!)
+![Python](https://img.shields.io/badge/Python-3.8%2B-blue.svg) ![License](https://img.shields.io/badge/License-MIT-green.svg)
 
-✨ Tính năng chính
-Ứng dụng được chia thành 3 tab chức năng chính:
+**VideoCreatorApp** là một ứng dụng máy tính đa năng, mạnh mẽ dành cho Windows, được thiết kế để trở thành người bạn đồng hành của những người sáng tạo nội dung. Cung cấp một bộ công cụ "tất cả trong một" để chỉnh sửa âm thanh, tạo video nhanh và xử lý hàng loạt tệp media.
 
-1. 🎹 Sửa Nhạc
-Hiển thị dạng sóng: Trực quan hóa file âm thanh trên một canvas để dễ dàng điều hướng.
+![Giao diện ứng dụng](https://i.imgur.com/your-screenshot.gif)
+*(Mẹo: Hãy quay một video GIF ngắn giới thiệu ứng dụng và thay thế link trên để README thêm phần sống động!)*
 
-Phát nhạc cơ bản: Hỗ trợ Play, Pause, Stop và tua nhạc bằng cách nhấp chuột trực tiếp lên dạng sóng.
+---
 
-Áp dụng hiệu ứng:
+## 📋 Mục lục
+* [Tính năng nổi bật](#-tính-năng-nổi-bật)
+* [Yêu cầu hệ thống](#-yêu-cầu-hệ-thống)
+* [Hướng dẫn cài đặt](#-hướng-dẫn-cài-đặt)
+* [Hướng dẫn sử dụng](#-hướng-dẫn-sử-dụng)
+* [Đóng góp](#-đóng-góp)
+* [Giấy phép](#-giấy-phép)
 
-Thay đổi Tốc độ (Speed) và Nhịp độ (Tempo).
+---
 
-Điều chỉnh Cao độ (Pitch) theo từng nửa cung.
+## ✨ Tính năng nổi bật
 
-Chuẩn hóa âm lượng (Normalize) để âm thanh đồng đều.
+### 🎹 **Tab 1: Trình Sửa Âm Thanh**
+- **Trực quan hóa Sóng Âm:** Phân tích và hiển thị dạng sóng của tệp audio trên Canvas, cho phép bạn "nhìn" thấy âm nhạc.
+- **Điều khiển Trực quan:** Tua nhạc tức thì bằng cách nhấp chuột vào bất kỳ vị trí nào trên dạng sóng.
+- **Bộ Hiệu ứng Đa dạng:**
+    - 🎚️ **Tốc độ & Nhịp độ:** Tăng hoặc giảm tốc độ phát lại mà không làm thay đổi (hoặc có thay đổi) cao độ.
+    - 🎵 **Cao độ (Pitch):** Dịch chuyển tông của bản nhạc lên hoặc xuống.
+    - 🔊 **Chuẩn hóa Âm lượng:** Tự động điều chỉnh âm lượng để đạt mức tiêu chuẩn, tránh tình trạng quá to hoặc quá nhỏ.
+    - 🤫 **Giảm Tiếng ồn:** Loại bỏ các tạp âm nền không mong muốn.
+- **📤 Xuất hàng loạt:** Áp dụng một bộ hiệu ứng cho nhiều tệp và xuất chúng cùng một lúc.
 
-Giảm tiếng ồn (Noise Reduction) cơ bản.
+### 🎬 **Tab 2: Trình Tạo Video**
+- **Ảnh + Nhạc = Video:** Tạo video một cách siêu tốc chỉ từ một tệp ảnh và một tệp âm thanh.
+- **Thư viện Ảnh:** Quản lý danh sách ảnh đầu vào với chế độ xem thumbnail tiện lợi.
+- **Linh hoạt Định dạng:** Hỗ trợ xuất ra các định dạng video phổ biến nhất (`.mp4`, `.mkv`, `.avi`, `.mov`).
 
-Thêm các loại nhiễu nền (Trắng, Hồng, Nâu) với cường độ tùy chỉnh.
+### ⚡ **Tab 3: Xử Lý Nhanh**
+- **Sức mạnh Tự động hóa:** Chọn một thư mục nguồn và một thư mục đích để xử lý hàng trăm tệp audio chỉ bằng một cú nhấp chuột.
+- **Các Mẫu Thiết lập Sẵn:** Nhanh chóng áp dụng các cấu hình phổ biến như "Tăng tốc nhẹ" hoặc "Chuẩn hóa âm lượng" cho toàn bộ tệp.
 
-Xuất hàng loạt: Chọn nhiều file và xuất tất cả chúng với cùng một bộ hiệu ứng.
+---
 
-2. 🎬 Tạo Video
-Đơn giản và hiệu quả: Tạo video nhanh chóng từ một file ảnh và một file âm thanh.
+## 🛠️ Yêu cầu hệ thống
 
-Danh sách ảnh trực quan: Thêm nhiều ảnh vào danh sách, xem dưới dạng thumbnail và chọn ảnh nền cho video.
+### **Đối với Người dùng cuối**
+- Hệ điều hành Windows 7/10/11.
+- Chỉ cần tải file `.exe` và chạy. Không yêu cầu cài đặt thêm.
 
-Hỗ trợ nhiều định dạng: Dễ dàng tạo video với các định dạng phổ biến như .mp4, .mkv, .mov...
+### **Đối với Lập trình viên**
+- **Python 3.8** trở lên.
+- **FFmpeg:** Đã được cài đặt và thêm vào biến môi trường `PATH` của hệ thống. (Tải tại [ffmpeg.org](https://ffmpeg.org/download.html))
+- Các thư viện Python được liệt kê trong file `requirements.txt`.
 
-Tối ưu cho ảnh tĩnh: Sử dụng các tùy chọn FFMPEG để đảm bảo chất lượng video tốt nhất cho nội dung là ảnh tĩnh.
+---
 
-3. ⚡ Xử lý nhanh
-Xử lý cả thư mục: Chọn một thư mục nguồn chứa hàng loạt file âm thanh để áp dụng hiệu ứng.
+## 🚀 Hướng dẫn cài đặt
 
-Các mẫu thiết lập sẵn:
+### **Cách 1: Tải bản dựng sẵn (.exe)**
+1.  Đi đến mục **[Releases](https://github.com/your-username/your-repo/releases)** của dự án.
+2.  Tải về tệp `VideoCreatorApp.exe`.
+3.  Nhấp đúp vào tệp để khởi chạy ứng dụng.
 
-Tăng/giảm tốc độ nhẹ.
+### **Cách 2: Chạy từ Mã nguồn**
+1.  Clone repository này về máy:
+    ```bash
+    git clone [https://github.com/your-username/your-repo.git](https://github.com/your-username/your-repo.git)
+    cd your-repo
+    ```
+2.  Tạo một môi trường ảo (khuyến khích):
+    ```bash
+    python -m venv venv
+    venv\Scripts\activate
+    ```
+3.  Cài đặt các thư viện cần thiết (đảm bảo bạn đã có file `requirements.txt`):
+    ```bash
+    pip install -r requirements.txt
+    ```
+4.  Chạy ứng dụng:
+    ```bash
+    python VideoCreatorApp.py
+    ```
 
-Thêm nhiễu trắng siêu nhẹ.
+---
 
-Chuẩn hóa âm lượng.
+## 📖 Hướng dẫn sử dụng
 
-Tự động hóa: Tự động xử lý tất cả các file và lưu vào một thư mục đầu ra riêng biệt, giúp tiết kiệm tối đa thời gian.
+1.  **Sửa Nhạc:**
+    - Kéo thả tệp audio vào danh sách hoặc dùng menu `File` -> `Thêm file...`.
+    - Nhấp vào một tệp trong danh sách để xem dạng sóng.
+    - Điều chỉnh các thanh trượt hiệu ứng bên dưới.
+    - Nhấn `▶ Play` để nghe thử bản xem trước.
+    - Tích vào các ô checkbox của những tệp bạn muốn xuất, sau đó nhấn nút `Xuất Audio đã chọn...`.
 
-🛠️ Yêu cầu
-Dành cho người dùng (Chạy file .exe)
-Hệ điều hành Windows 7, 10, 11.
+2.  **Tạo Video:**
+    - Kéo thả một hoặc nhiều ảnh vào khu vực "Danh sách ảnh".
+    - Kéo thả một tệp audio vào ô "Chọn file âm thanh" hoặc dùng nút `Duyệt...`.
+    - Nhấp vào một ảnh trong danh sách để chọn làm nền cho video.
+    - Chọn định dạng và nhấn `Tạo Video`.
 
-Không cần cài đặt gì thêm nếu bạn tải bản đã được đóng gói.
+3.  **Xử lý nhanh:**
+    - Chọn thư mục nguồn và thư mục đích.
+    - Chọn các tùy chọn xử lý hàng loạt.
+    - Nhấn `Bắt đầu xử lý hàng loạt`.
 
-Dành cho lập trình viên (Chạy từ mã nguồn)
-Python 3.8+
+---
 
-FFmpeg & FFprobe: Cần được cài đặt và thêm vào biến môi trường PATH của hệ thống. Bạn có thể tải về từ trang web chính thức của FFmpeg.
+## 📦 Đóng gói ứng dụng (.exe)
 
-Các thư viện Python:
+Để tự đóng gói ứng dụng, bạn cần `pyinstaller`.
 
-pygame
-Pillow
-numpy
-tkinterdnd2-universal
-pyinstaller (để đóng gói)
-Bạn có thể cài đặt tất cả bằng lệnh: pip install pygame Pillow numpy tkinterdnd2-universal
+1.  Cài đặt: `pip install pyinstaller`
+2.  Tạo thư mục `binaries` và đặt `ffmpeg.exe`, `ffprobe.exe` vào trong đó.
+3.  Chạy lệnh sau từ thư mục gốc dự án:
+    ```bash
+    pyinstaller --name "VideoCreatorApp" --onefile --windowed --icon="path/to/your/icon.ico" --add-binary "binaries/ffmpeg.exe;." --add-binary "binaries/ffprobe.exe;." VideoCreatorApp.py
+    ```
+4.  Ứng dụng hoàn chỉnh của bạn sẽ nằm trong thư mục `dist`.
 
-🚀 Cài đặt và Sử dụng
-Cách 1: Sử dụng file .exe (Khuyến khích)
-Truy cập mục Releases trên trang GitHub của dự án.
+---
 
-Tải về file VideoCreatorApp.exe mới nhất.
+## 🤝 Đóng góp
 
-Chạy file vừa tải về để bắt đầu sử dụng.
+Mọi ý kiến đóng góp đều được hoan nghênh! Vui lòng tạo một [Pull Request](https://github.com/your-username/your-repo/pulls) hoặc mở một [Issue](https://github.com/your-username/your-repo/issues) để thảo luận về những thay đổi bạn muốn thực hiện.
 
-Cách 2: Chạy từ mã nguồn
-Clone repository này về máy của bạn:
+---
 
-Bash
+## 📝 Giấy phép
 
-git clone https://github.com/your-username/VideoCreatorApp.git
-Đảm bảo bạn đã cài đặt FFmpeg và các thư viện Python được liệt kê ở trên.
-
-Di chuyển vào thư mục dự án:
-
-Bash
-
-cd VideoCreatorApp
-Chạy ứng dụng:
-
-Bash
-
-python VideoCreatorApp.py
-📦 Đóng gói thành file .exe
-Nếu bạn muốn tự đóng gói ứng dụng từ mã nguồn, hãy làm theo các bước sau:
-
-Cài đặt PyInstaller: pip install pyinstaller
-
-Tạo một thư mục con tên là binaries và sao chép ffmpeg.exe và ffprobe.exe vào đó.
-
-Chạy lệnh sau từ thư mục gốc của dự án:
-
-Bash
-
-pyinstaller --name "VideoCreatorApp" --onefile --windowed --icon="path/to/your/icon.ico" --add-binary "binaries/ffmpeg.exe;." --add-binary "binaries/ffprobe.exe;." VideoCreatorApp.py
-File .exe hoàn chỉnh sẽ nằm trong thư mục dist.
-
-✍️ Tác giả
-(Điền tên của bạn vào đây)
-
-Cảm ơn bạn đã sử dụng ứng dụng! Nếu có bất kỳ câu hỏi hoặc góp ý nào, vui lòng tạo một "Issue" trên GitHub.
+Dự án này được cấp phép theo **Giấy phép MIT**. Xem file `LICENSE` để biết thêm chi tiết.
