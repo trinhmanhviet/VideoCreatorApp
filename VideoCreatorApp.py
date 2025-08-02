@@ -50,7 +50,6 @@ def cleanup_temp_dir():
 atexit.register(cleanup_temp_dir)
 
 # --- Lớp ứng dụng chính ---
-# --- Lớp ứng dụng chính ---
 class FfmpegGuiApp(TkinterDnD.Tk):
     def __init__(self):
         super().__init__()
@@ -84,7 +83,7 @@ class FfmpegGuiApp(TkinterDnD.Tk):
         self.active_thread = None
         self.image_thumbnails = [] 
         self.seek_offset = 0.0
-        self.duration_cache = {} # Cache chỉ để lưu thời lượng, giúp chọn file nhanh
+        self.duration_cache = {}
         self.check_ffmpeg_tools()
         self.create_main_layout()
         self.protocol("WM_DELETE_WINDOW", self.on_closing)
@@ -148,42 +147,52 @@ class FfmpegGuiApp(TkinterDnD.Tk):
         self.undo_stack = []; self.redo_stack = []
         self.is_preview_dirty = True; self.is_paused = False
         self.playback_update_id = None; self.is_seeking = False
-        self.audio_file_paths = {}
+        
+        # SỬA ĐỔI LỚN: Các biến để quản lý danh sách tùy chỉnh mới
+        self.audio_check_vars = {} # {path: tk.BooleanVar}
+        self.audio_row_widgets = {} # {path: row_frame}
+        self.selected_audio_path_in_list = None
+        self.selected_audio_frame = None
 
         paned_window = ttk.PanedWindow(parent_tab, orient=tk.HORIZONTAL)
         paned_window.pack(expand=True, fill="both")
 
-        left_pane = ttk.Frame(paned_window, width=300)
+        left_pane = ttk.Frame(paned_window, width=350) # Tăng chiều rộng một chút
         paned_window.add(left_pane, weight=1)
         
-        # MỚI: Khung chứa chế độ một file
         self.single_audio_frame = ttk.LabelFrame(left_pane, text="Chọn 1 file audio", padding=5)
         self.single_audio_path = tk.StringVar()
         self.single_audio_path.trace_add("write", self.on_single_audio_select)
         ttk.Entry(self.single_audio_frame, textvariable=self.single_audio_path, state="readonly").pack(side="left", fill="x", expand=True, padx=(0,5))
         ttk.Button(self.single_audio_frame, text="Duyệt...", command=lambda: self.browse_generic_file(self.single_audio_path, "audio")).pack(side="right")
 
-        # SỬA: Khung chứa chế độ nhiều file (batch)
+        # SỬA ĐỔI LỚN: Thay thế Treeview bằng một danh sách tùy chỉnh (Canvas + Frame)
         self.list_lf = ttk.LabelFrame(left_pane, text="Danh sách file (chế độ hàng loạt)", padding=5)
-        
-        self.audio_tree = ttk.Treeview(self.list_lf, columns=("filename",), show="headings", selectmode="extended")
-        self.audio_tree.heading("filename", text="Tên file")
-        self.audio_tree.column("filename", anchor="w")
-        self.audio_tree.tag_configure('checked', image=self.get_check_image(True))
-        self.audio_tree.tag_configure('unchecked', image=self.get_check_image(False))
-        self.audio_tree.bind("<Button-1>", self.on_audio_tree_click)
-        self.audio_tree.bind("<<TreeviewSelect>>", self.on_audio_tree_select)
-        
-        scrollbar = ttk.Scrollbar(self.list_lf, orient=tk.VERTICAL, command=self.audio_tree.yview)
-        self.audio_tree.config(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
-        self.audio_tree.pack(expand=True, fill="both")
-        
+
+        # Các nút check/uncheck
         list_buttons_frame = ttk.Frame(self.list_lf)
-        list_buttons_frame.pack(fill="x", pady=5)
+        list_buttons_frame.pack(fill="x", pady=(0, 5))
         ttk.Button(list_buttons_frame, text="Check tất cả", command=lambda: self.toggle_all_audio_checks(True)).pack(side="left", expand=True, fill="x")
         ttk.Button(list_buttons_frame, text="Bỏ Check", command=lambda: self.toggle_all_audio_checks(False)).pack(side="left", expand=True, fill="x")
         ttk.Button(list_buttons_frame, text="Đảo ngược", command=self.invert_audio_checks).pack(side="left", expand=True, fill="x")
+
+        # Khung chứa thanh cuộn và danh sách
+        list_container = ttk.Frame(self.list_lf)
+        list_container.pack(expand=True, fill="both")
+        
+        self.audio_list_canvas = tk.Canvas(list_container, bg=self.cget('bg'), highlightthickness=0)
+        scrollbar = ttk.Scrollbar(list_container, orient="vertical", command=self.audio_list_canvas.yview)
+        self.audio_list_inner_frame = ttk.Frame(self.audio_list_canvas) # Frame để chứa các dòng
+        
+        self.audio_list_canvas.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side="right", fill="y")
+        self.audio_list_canvas.pack(side="left", fill="both", expand=True)
+        self.canvas_frame_id = self.audio_list_canvas.create_window((0, 0), window=self.audio_list_inner_frame, anchor="nw")
+        
+        # Binding để cập nhật thanh cuộn và mouse wheel
+        self.audio_list_inner_frame.bind("<Configure>", self.on_inner_frame_configure)
+        self.audio_list_canvas.bind('<MouseWheel>', lambda e: self.audio_list_canvas.yview_scroll(-1 * (e.delta // 120), "units"))
+        # Kết thúc phần thay thế Treeview
 
         right_pane = ttk.Frame(paned_window)
         paned_window.add(right_pane, weight=3)
@@ -191,10 +200,10 @@ class FfmpegGuiApp(TkinterDnD.Tk):
         top_frame = ttk.Frame(right_pane)
         top_frame.pack(side="top", fill="x")
 
-        # MỚI: Checkbox chuyển đổi chế độ
         mode_frame = ttk.Frame(top_frame)
         mode_frame.pack(fill="x", padx=5, pady=5)
-        self.audio_batch_mode = tk.BooleanVar(value=True)
+        
+        self.audio_batch_mode = tk.BooleanVar(value=False)
         ttk.Checkbutton(mode_frame, text="Chế độ hàng loạt (Batch)", variable=self.audio_batch_mode, command=self.toggle_audio_batch_mode).pack(anchor="w")
 
         toolbar_frame = ttk.Frame(top_frame, style="TFrame", relief="groove", borderwidth=1)
@@ -245,48 +254,75 @@ class FfmpegGuiApp(TkinterDnD.Tk):
         self.create_audio_status_bar(bottom_frame)
 
         self.save_state()
-        self.toggle_audio_batch_mode() # MỚI: Đặt trạng thái ban đầu cho giao diện
+        self.toggle_audio_batch_mode()
 
-    # MỚI: Hàm chuyển đổi giao diện giữa chế độ batch và single
-    def toggle_audio_batch_mode(self):
-        self.stop_audio()
-        if self.audio_batch_mode.get(): # Chế độ hàng loạt
-            self.single_audio_frame.pack_forget()
-            self.list_lf.pack(expand=True, fill="both", pady=(5,0))
-            self.on_audio_tree_select(None) # Cập nhật thanh seek bar
-        else: # Chế độ một file
-            self.list_lf.pack_forget()
-            self.single_audio_frame.pack(fill="x", pady=(5,0))
-            self.on_single_audio_select(None) # Cập nhật thanh seek bar
+    # SỬA ĐỔI LỚN: Các hàm hỗ trợ cho danh sách tùy chỉnh
+    def on_inner_frame_configure(self, event):
+        self.audio_list_canvas.configure(scrollregion=self.audio_list_canvas.bbox("all"))
+        self.audio_list_canvas.itemconfig(self.canvas_frame_id, width=self.audio_list_canvas.winfo_width())
     
-    # MỚI: Hàm xử lý khi chọn một file trong chế độ single
-    def on_single_audio_select(self, *args):
-        self.mark_preview_as_dirty()
-        self.seek_offset = 0.0
-        self.seek_var.set(0)
+    def on_audio_row_select(self, path, row_frame):
+        # Bỏ chọn dòng cũ
+        if self.selected_audio_frame:
+            try: self.selected_audio_frame.configure(style="TFrame")
+            except TclError: pass # Widget có thể đã bị xóa
+        
+        # Chọn dòng mới
+        self.selected_audio_frame = row_frame
+        self.selected_audio_frame.configure(style="Selected.TFrame")
+        self.selected_audio_path_in_list = path
+        
+        # Cập nhật thanh seek bar
+        self.update_player_for_selection()
+
+    def update_player_for_selection(self):
+        self.mark_preview_as_dirty(); self.seek_offset = 0.0; self.seek_var.set(0)
         self.current_time_label.config(text="00:00.0")
         selected_path = self.get_active_audio_path()
-        if selected_path and os.path.exists(selected_path):
+        if selected_path:
             duration = self.get_file_duration(selected_path)
             if duration is not None:
-                self.seek_bar.config(to=duration)
-                self.total_duration_label.config(text=self.format_time(duration))
-            else:
-                self.total_duration_label.config(text="--:--.-")
-        else:
-            self.seek_bar.config(to=100)
-            self.total_duration_label.config(text="00:00.0")
+                self.seek_bar.config(to=duration); self.total_duration_label.config(text=self.format_time(duration))
+            else: self.total_duration_label.config(text="--:--.-")
+        else: self.total_duration_label.config(text="00:00.0")
 
-    def get_check_image(self, checked):
-        if not hasattr(self, "_check_images"): self._check_images = {}
-        if checked not in self._check_images:
-            im = Image.new("RGBA", (16, 16), (0,0,0,0))
-            for i in range(2, 14): im.putpixel((i, 2), (0,0,0,255)); im.putpixel((i, 13), (0,0,0,255)); im.putpixel((2, i), (0,0,0,255)); im.putpixel((13, i), (0,0,0,255))
-            if checked:
-                for i in range(3): im.putpixel((5+i, 8+i), (0,0,0,255)); im.putpixel((6+i, 8+i), (0,0,0,255))
-                for i in range(4): im.putpixel((7+i, 10-i), (0,0,0,255)); im.putpixel((8+i, 10-i), (0,0,0,255))
-            self._check_images[checked] = ImageTk.PhotoImage(im)
-        return self._check_images[checked]
+    def _create_audio_row(self, path):
+        # Tạo một dòng (widget) cho một file audio
+        row_frame = ttk.Frame(self.audio_list_inner_frame, style="TFrame", padding=(5, 3))
+        check_var = tk.BooleanVar()
+        
+        checkbutton = ttk.Checkbutton(row_frame, variable=check_var)
+        checkbutton.pack(side="left")
+        
+        filename = os.path.basename(path)
+        label = ttk.Label(row_frame, text=filename, anchor="w")
+        label.pack(side="left", fill="x", expand=True)
+
+        # Lưu lại các widget và biến
+        self.audio_check_vars[path] = check_var
+        self.audio_row_widgets[path] = row_frame
+
+        # Binding sự kiện click để chọn dòng
+        select_func = lambda e, p=path, rf=row_frame: self.on_audio_row_select(p, rf)
+        label.bind("<Button-1>", select_func)
+        row_frame.bind("<Button-1>", select_func)
+        checkbutton.bind("<Button-1>", lambda e: row_frame.after(10, select_func, None)) # Delay để checkbutton cập nhật trước
+
+        row_frame.pack(fill="x", expand=True)
+
+    def toggle_audio_batch_mode(self):
+        self.stop_audio()
+        if self.audio_batch_mode.get():
+            self.single_audio_frame.pack_forget()
+            self.list_lf.pack(expand=True, fill="both", pady=(5,0))
+            self.update_player_for_selection()
+        else:
+            self.list_lf.pack_forget()
+            self.single_audio_frame.pack(fill="x", pady=(5,0))
+            self.update_player_for_selection()
+    
+    def on_single_audio_select(self, *args):
+        self.update_player_for_selection()
 
     def create_audio_toolbar(self, parent):
         self.play_pause_btn = ttk.Button(parent, text="▶ Play", width=8, command=self.toggle_play_pause); self.play_pause_btn.pack(side="left", padx=2, pady=5)
@@ -300,48 +336,21 @@ class FfmpegGuiApp(TkinterDnD.Tk):
         status_frame = ttk.Frame(parent); status_frame.pack(fill="x", padx=5)
         self.audio_status_label = ttk.Label(status_frame, text="Sẵn sàng", style="Status.TLabel", anchor="w"); self.audio_status_label.pack(side="left", fill="x", expand=True)
         self.audio_open_button = ttk.Button(status_frame, text="Mở thư mục", style="Open.TButton")
-        
-    def on_audio_tree_click(self, event):
-        item_id = self.audio_tree.identify_row(event.y)
-        if not item_id: return
-        tags = list(self.audio_tree.item(item_id, "tags"))
-        if 'checked' in tags: tags.remove('checked'); tags.append('unchecked')
-        elif 'unchecked' in tags: tags.remove('unchecked'); tags.append('checked')
-        self.audio_tree.item(item_id, tags=tuple(tags))
+        style = ttk.Style(self)
+        style.configure("Selected.TFrame", background="#E0E8F0")
 
-    def on_audio_tree_select(self, event):
-        self.mark_preview_as_dirty(); self.seek_offset = 0.0; self.seek_var.set(0)
-        self.current_time_label.config(text="00:00.0")
-        selected_path = self.get_active_audio_path()
-        if selected_path:
-            duration = self.get_file_duration(selected_path)
-            if duration is not None:
-                self.seek_bar.config(to=duration); self.total_duration_label.config(text=self.format_time(duration))
-            else: self.total_duration_label.config(text="--:--.-")
-        else: self.total_duration_label.config(text="00:00.0")
-
-    # SỬA: Đổi tên và logic để hoạt động với cả 2 chế độ
     def get_active_audio_path(self):
-        if self.audio_batch_mode.get(): # Chế độ Batch
-            selection = self.audio_tree.selection()
-            if selection:
-                item_id = self.audio_tree.focus() or selection[0]
-                return self.audio_file_paths.get(item_id)
-            return None
-        else: # Chế độ Single
+        if self.audio_batch_mode.get():
+            return self.selected_audio_path_in_list
+        else:
             return self.single_audio_path.get()
-
+    
+    # SỬA ĐỔI LỚN: Các hàm quản lý danh sách tùy chỉnh
     def add_audio_files_to_list(self, file_paths):
-        new_file_added = False
         for path in file_paths:
-            if path not in self.audio_file_paths.values():
-                filename = os.path.basename(path)
-                item_id = self.audio_tree.insert("", "end", values=(filename,), tags=('unchecked',))
-                self.audio_file_paths[item_id] = path; new_file_added = True
-        if new_file_added and not self.audio_tree.selection():
-             first_item = self.audio_tree.get_children()[0]
-             self.audio_tree.selection_set(first_item); self.audio_tree.focus(first_item)
-
+            if path not in self.audio_check_vars:
+                self._create_audio_row(path)
+    
     def add_audio_files_from_folder(self, folder_path):
         audio_files, exts = [], ['.mp3', '.wav', '.aac', '.flac', '.opus', '.ogg', '.m4a']
         for entry in os.scandir(folder_path):
@@ -350,34 +359,33 @@ class FfmpegGuiApp(TkinterDnD.Tk):
         else: messagebox.showinfo("Thông báo", "Không tìm thấy file audio trong thư mục.", parent=self)
 
     def toggle_all_audio_checks(self, check_state):
-        tag = 'checked' if check_state else 'unchecked'
-        for iid in self.audio_tree.get_children(): self.audio_tree.item(iid, tags=(tag,))
+        for var in self.audio_check_vars.values():
+            var.set(check_state)
 
     def invert_audio_checks(self):
-        for iid in self.audio_tree.get_children():
-            tags = list(self.audio_tree.item(iid, "tags"))
-            if 'checked' in tags: tags.remove('checked'); tags.append('unchecked')
-            elif 'unchecked' in tags: tags.remove('unchecked'); tags.append('checked')
-            self.audio_tree.item(iid, tags=tuple(tags))
+        for var in self.audio_check_vars.values():
+            var.set(not var.get())
             
     def get_checked_audio_files(self):
-        files = []
-        for iid in self.audio_tree.get_children():
-            if 'checked' in self.audio_tree.item(iid, "tags"): files.append(self.audio_file_paths[iid])
-        return files
+        return [path for path, var in self.audio_check_vars.items() if var.get()]
+    # Kết thúc các hàm quản lý danh sách tùy chỉnh
 
     def run_batch_export(self, files, output_folder):
         total = len(files); self.audio_progress_bar['maximum'] = total; self.audio_progress_bar['value'] = 0
         state = self.get_current_state()
         for i, path in enumerate(files):
-            fname = os.path.basename(path); self.audio_status_label.config(text=f"Đang xử lý {i+1}/{total}: {fname}"); self.update_idletasks()
-            out_path = os.path.join(output_folder, fname); command = self.build_ffmpeg_command(path, out_path, state)
+            original_fname = os.path.basename(path)
+            name, ext = os.path.splitext(original_fname)
+            new_fname = f"{name}_edited{ext}"
+            
+            self.audio_status_label.config(text=f"Đang xử lý {i+1}/{total}: {original_fname}"); self.update_idletasks()
+            out_path = os.path.join(output_folder, new_fname); command = self.build_ffmpeg_command(path, out_path, state)
             try:
                 startupinfo = None
                 if sys.platform == "win32": startupinfo = subprocess.STARTUPINFO(); startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                 subprocess.run(command, check=True, capture_output=True, startupinfo=startupinfo, text=True, encoding='utf-8')
             except subprocess.CalledProcessError as e:
-                print(f"Lỗi xử lý {fname}:\n{e.stderr}"); self.audio_status_label.config(text=f"Lỗi xử lý file: {fname}. Bỏ qua.")
+                print(f"Lỗi xử lý {original_fname}:\n{e.stderr}"); self.audio_status_label.config(text=f"Lỗi xử lý file: {original_fname}. Bỏ qua.")
                 self.audio_progress_bar['value'] = i + 1; continue
             self.audio_progress_bar['value'] = i + 1
         self.audio_status_label.config(text=f"Hoàn thành! Đã xuất {total} files."); messagebox.showinfo("Hoàn thành", f"Đã xuất thành công {total} files.\nLưu tại: {output_folder}")
@@ -557,14 +565,12 @@ class FfmpegGuiApp(TkinterDnD.Tk):
     def mark_preview_as_dirty(self, *args): self.is_preview_dirty = True; self.duration_cache = {}; self.stop_audio()
 
     def browse_main_audio_file(self):
-        # SỬA: Chuyển sang chế độ single nếu chưa
         if self.audio_batch_mode.get():
             self.audio_batch_mode.set(False)
             self.toggle_audio_batch_mode()
         self.browse_generic_file(self.single_audio_path, "audio")
 
     def browse_main_audio_folder(self):
-        # SỬA: Chuyển sang chế độ batch nếu chưa
         if not self.audio_batch_mode.get():
             self.audio_batch_mode.set(True)
             self.toggle_audio_batch_mode()
@@ -582,22 +588,22 @@ class FfmpegGuiApp(TkinterDnD.Tk):
         
         is_folder_drop = len(filepaths) == 1 and os.path.isdir(filepaths[0])
         
-        if current_tab_index == 0: # Tab Sửa nhạc
-            if is_folder_drop: # Nếu thả thư mục
-                if not self.audio_batch_mode.get(): # Chuyển sang batch nếu đang single
+        if current_tab_index == 0:
+            if is_folder_drop:
+                if not self.audio_batch_mode.get():
                     self.audio_batch_mode.set(True)
                     self.toggle_audio_batch_mode()
                 self.add_audio_files_from_folder(filepaths[0])
-            else: # Nếu thả file
+            else:
                 audio_files = [p for p in filepaths if os.path.splitext(p)[1].lower() in ['.mp3', '.wav', '.aac', '.flac', '.opus', '.ogg', '.m4a']]
                 if not audio_files: return
                 if self.audio_batch_mode.get():
                     self.add_audio_files_to_list(audio_files)
-                else: # Đang ở chế độ single, chỉ lấy file đầu tiên
+                else:
                     self.single_audio_path.set(audio_files[0])
             return
 
-        if current_tab_index == 1: # Tab Tạo video
+        if current_tab_index == 1:
             if is_folder_drop:
                 self.add_images_from_folder(filepaths[0])
             else:
@@ -607,7 +613,7 @@ class FfmpegGuiApp(TkinterDnD.Tk):
                 if audio_files: self.video_audio_path.set(audio_files[0])
             return
 
-        if current_tab_index == 2: # Tab Xử lý nhanh
+        if current_tab_index == 2:
             if is_folder_drop:
                 self.select_quick_folder(filepaths[0])
             return
@@ -666,16 +672,15 @@ class FfmpegGuiApp(TkinterDnD.Tk):
         audio_file = self.get_active_audio_path()
         if not (audio_file and os.path.exists(audio_file)): messagebox.showerror("Thiếu thông tin", "Vui lòng chọn một file âm thanh."); return
         self.save_state()
-        self.preview_file_path = os.path.join(TEMP_DIR, f"preview_{os.path.basename(audio_file)}.wav")
+        self.preview_file_path = os.path.join(TEMP_DIR, f"preview_{int(time.time())}_{os.path.basename(audio_file)}.wav")
         command = self.build_ffmpeg_command(audio_file, self.preview_file_path)
         self.active_thread = threading.Thread(target=self.run_generic_process, args=(command, audio_file, self.preview_file_path, True, self.audio_progress_bar, self.audio_status_label, self.audio_open_button, callback), daemon=True); self.active_thread.start()
 
-    # SỬA: Cập nhật để xử lý cả 2 chế độ
     def export_audio(self):
         if self.active_thread and self.active_thread.is_alive():
             messagebox.showwarning("Đang xử lý", "Một tác vụ khác đang chạy."); return
 
-        if self.audio_batch_mode.get(): # Chế độ Batch
+        if self.audio_batch_mode.get():
             checked_files = self.get_checked_audio_files()
             if not checked_files:
                 messagebox.showerror("Lỗi", "Vui lòng tích chọn ít nhất một file để xuất."); return
@@ -683,15 +688,18 @@ class FfmpegGuiApp(TkinterDnD.Tk):
             if not output_folder: return
             self.active_thread = threading.Thread(target=self.run_batch_export, args=(checked_files, output_folder), daemon=True)
             self.active_thread.start()
-        else: # Chế độ Single
+        else:
             input_file = self.get_active_audio_path()
             if not (input_file and os.path.exists(input_file)):
                 messagebox.showerror("Thiếu thông tin", "Vui lòng chọn một file âm thanh hợp lệ."); return
             
+            name, ext = os.path.splitext(os.path.basename(input_file))
+            new_initialfile = f"{name}_edited{ext}"
+
             output_path = filedialog.asksaveasfilename(
                 title="Lưu file audio",
-                initialfile=os.path.basename(input_file),
-                defaultextension=".mp3",
+                initialfile=new_initialfile,
+                defaultextension=ext or ".mp3",
                 filetypes=[("MP3 Audio", "*.mp3"), ("WAV Audio", "*.wav"), ("FLAC Audio", "*.flac"), ("All Files", "*.*")]
             )
             if not output_path: return
@@ -703,7 +711,6 @@ class FfmpegGuiApp(TkinterDnD.Tk):
                 daemon=True
             )
             self.active_thread.start()
-
 
     def start_video_creation_thread(self):
         if self.active_thread and self.active_thread.is_alive(): messagebox.showwarning("Đang xử lý", "Một tác vụ khác đang chạy."); return
@@ -759,12 +766,11 @@ class FfmpegGuiApp(TkinterDnD.Tk):
             if is_preview:
                 self.is_preview_dirty = False
                 if callback:
-                    self.after(0, callback) # Sửa lỗi thụt lề ở đây
+                    self.after(0, callback)
             else:
                 open_button.config(command=lambda: self.open_folder_and_select_file(output_path))
                 open_button.pack(side="right", padx=(5, 0))
                 if output_path.lower().endswith(('.mp3', '.wav', '.flac', '.opus', '.m4a')):
-                    # SỬA: Tự động chuyển qua tab Sửa Nhạc nếu đang ở chế độ single
                     if self.notebook.index(self.notebook.select()) != 0:
                          self.video_audio_path.set(output_path)
                          self.notebook.select(self.video_creator_tab)
@@ -798,10 +804,6 @@ class FfmpegGuiApp(TkinterDnD.Tk):
         if folder_path: self.quick_output_folder.set(folder_path)
     
     def start_quick_process(self):
-        """
-        Bắt đầu quá trình xử lý hàng loạt trong tab "Xử lý nhanh".
-        Hàm này lấy dữ liệu từ UI và khởi chạy `run_quick_process` trong một luồng riêng.
-        """
         if self.active_thread and self.active_thread.is_alive():
             messagebox.showwarning("Đang xử lý", "Một tác vụ khác đang chạy.", parent=self)
             return
@@ -841,9 +843,15 @@ class FfmpegGuiApp(TkinterDnD.Tk):
         if preset == "speed_up": state['speed'] = 1.005
         elif preset == "speed_down": state['speed'] = 0.990
         if add_noise: state['noise_type'] = "Nhiễu trắng"; state['noise_amp'] = 0.0005
+        
         for i, filename in enumerate(filenames):
+            name, ext = os.path.splitext(filename)
+            new_fname = f"{name}_edited{ext}"
+
             self.quick_status_label.config(text=f"Đang xử lý {i+1}/{len(filenames)}: {filename}"); self.quick_progress_bar['value'] = i; self.update_idletasks()
-            in_path = os.path.join(input_folder, filename); out_path = os.path.join(output_folder, filename); command = self.build_ffmpeg_command(in_path, out_path, state)
+            in_path = os.path.join(input_folder, filename)
+            out_path = os.path.join(output_folder, new_fname)
+            command = self.build_ffmpeg_command(in_path, out_path, state)
             try:
                 startupinfo = None
                 if sys.platform == "win32": startupinfo = subprocess.STARTUPINFO(); startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
